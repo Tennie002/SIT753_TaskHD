@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MelDate | Plan</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    .navbar-nav .nav-link.active {
+      text-decoration: underline;
+      font-weight: bold;
+    }
+    html { scroll-behavior: smooth; }
+    .day-img {
+      height: 220px;
+      object-fit: cover;
+      border-top-left-radius: 0.375rem;
+      border-top-right-radius: 0.375rem;
+    }
+  </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top justify-content-center">
+  <div class="container">
+    <a class="navbar-brand fw-bold display-4 mx-auto" href="/">MelDate</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse justify-content-center text-center" id="navbarNav">
+      <ul class="navbar-nav mx-auto text-center">
+        <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="/explore.html">Explore</a></li>
+        <li class="nav-item"><a class="nav-link active" href="/plan">Plan</a></li>
+        <li class="nav-item"><a class="nav-link" href="/search">Search</a></li>
+        <li class="nav-item"><a class="nav-link" href="/contact">Contact</a></li>
+
+        <% if (!username) { %>
+          <li class="nav-item"><a class="nav-link" href="/login">Login</a></li>
+        <% } else { %>
+          <li class="nav-item ms-3" style="color: yellow;">
+            Welcome, <strong><%= username %></strong>
+            <a href="/logout" class="btn btn-sm btn-outline-warning ms-2">Logout</a>
+          </li>
+        <% } %>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<section class="container py-5" id="plan">
+  <h2 class="text-center mb-4">Make the Plan</h2>
+
+  <!-- Nav Tabs -->
+  <ul class="nav nav-tabs justify-content-center mb-4" id="planTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="day-tab" data-bs-toggle="tab" data-bs-target="#day" type="button" role="tab" aria-controls="day" aria-selected="true">Day Date</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="night-tab" data-bs-toggle="tab" data-bs-target="#night" type="button" role="tab" aria-controls="night" aria-selected="false">Night Date</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="custom-tab" data-bs-toggle="tab" data-bs-target="#custom" type="button" role="tab" aria-controls="custom" aria-selected="false">Customize Date</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="viewplans-tab" data-bs-toggle="tab" data-bs-target="#viewplans" type="button" role="tab" aria-controls="viewplans" aria-selected="false">View Submitted Plans</button>
+    </li>
+  </ul>
+
+  <!-- Tab Contents -->
+  <div class="tab-content" id="planTabContent">
+
+    <!-- Day Date Tab -->
+    <div class="tab-pane fade show active" id="day" role="tabpanel" aria-labelledby="day-tab">
+      <div class="row g-4">
+        <div class="col-md-4">
+          <div class="card h-100">
+            <img src="https://images.unsplash.com/photo-1730712499678-874a4a0191f0?q=80&w=2940&auto=format&fit=crop" class="card-img-top day-img" alt="Picnic">
+            <div class="card-body">
+              <h5 class="card-title">Tour Picnic</h5>
+              <p class="card-text">A cozy park setup with snacks, drinks, and chill vibes.</p>
+              <a href="#" class="btn btn-primary">Book This Plan</a>
+            </div>
+          </div>
+        </div>
+        <!-- Add your other day cards here -->
+      </div>
+    </div>
+
+    <!-- Night Date Tab -->
+    <div class="tab-pane fade" id="night" role="tabpanel" aria-labelledby="night-tab">
+      <div class="row g-4 mt-3">
+        <div class="col-md-4">
+          <div class="card h-100 text-white" style="background-image: url('img/comedy.jpg'); background-size: cover; background-position: center;">
+            <div class="card-body d-flex flex-column justify-content-end bg-dark bg-opacity-50 p-3 rounded">
+              <h5 class="card-title fw-bold">Comedy Show</h5>
+              <p class="card-text">Laugh together at Melbourne’s top comedy spots.</p>
+              <a href="#" class="btn btn-light mt-2">Book This Plan</a>
+            </div>
+          </div>
+        </div>
+        <!-- Add your other night cards here -->
+      </div>
+    </div>
+
+    <!-- Customize Date Tab -->
+    <div class="tab-pane fade" id="custom" role="tabpanel" aria-labelledby="custom-tab">
+      <form class="row g-3 mt-4" action="/submit-custom" method="POST">
+        <div class="col-md-6">
+          <label for="name" class="form-label">Name</label>
+          <input id="name" type="text" name="name" class="form-control" required />
+        </div>
+        <div class="col-md-6">
+          <label for="email" class="form-label">Email</label>
+          <input id="email" type="email" name="email" class="form-control" required />
+        </div>
+        <div class="col-md-4">
+          <label for="preference" class="form-label">Preference</label>
+          <select id="preference" name="preference" class="form-select">
+            <option value="Day">Day</option>
+            <option value="Night">Night</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label for="date" class="form-label">Date</label>
+          <input id="date" type="date" name="date" class="form-control" />
+        </div>
+        <div class="col-md-4">
+          <label for="people" class="form-label">Number of People</label>
+          <input id="people" type="number" name="people" class="form-control" min="1" value="2" />
+        </div>
+        <div class="col-md-6">
+          <label for="duration" class="form-label">Duration</label>
+          <input id="duration" type="text" name="duration" class="form-control" placeholder="e.g., 2 hours" />
+        </div>
+        <div class="col-md-6">
+          <label for="budget" class="form-label">Budget</label>
+          <select id="budget" name="budget" class="form-select">
+            <option>$0 - $50</option>
+            <option>$50 - $100</option>
+            <option>$100 - $200</option>
+            <option>$200+</option>
+          </select>
+        </div>
+        <div class="col-12">
+          <label for="notes" class="form-label">Notes</label>
+          <textarea id="notes" name="notes" class="form-control" rows="3"></textarea>
+        </div>
+        <div class="col-12">
+          <button type="submit" class="btn btn-success">Submit Plan</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- View Submitted Plans Tab -->
+    <div class="tab-pane fade" id="viewplans" role="tabpanel" aria-labelledby="viewplans-tab">
+      <h3 class="mt-4">Submitted Plans</h3>
+      <table class="table table-bordered table-striped mt-3" id="plansTable">
+        <thead>
+          <tr>
+            <th>Name</th><th>Email</th><th>Preference</th><th>Date</th>
+            <th>People</th><th>Duration</th><th>Budget</th><th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td colspan="8" class="text-center">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  // Load submitted plans dynamically via AJAX
+  document.addEventListener('DOMContentLoaded', () => {
+    const plansTableBody = document.querySelector('#plansTable tbody');
+
+    fetch('/api/plans')
+      .then(res => res.json())
+      .then(plans => {
+        if (!plans.length) {
+          plansTableBody.innerHTML = '<tr><td colspan="8" class="text-center">No submitted plans yet.</td></tr>';
+          return;
+        }
+
+        plansTableBody.innerHTML = plans.map(plan => `
+          <tr>
+            <td>${plan.name}</td>
+            <td>${plan.email}</td>
+            <td>${plan.preference}</td>
+            <td>${plan.date || '-'}</td>
+            <td>${plan.people || '-'}</td>
+            <td>${plan.duration || '-'}</td>
+            <td>${plan.budget || '-'}</td>
+            <td>${plan.notes || '-'}</td>
+          </tr>
+        `).join('');
+      })
+      .catch(() => {
+        plansTableBody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Failed to load plans.</td></tr>';
+      });
+  });
+</script>
+
+</body>
+</html>
