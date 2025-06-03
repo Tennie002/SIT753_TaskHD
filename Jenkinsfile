@@ -1,30 +1,21 @@
-// Jenkinsfile – fixed Declarative syntax
+// Jenkinsfile  (Declarative Pipeline - combined environments)
 
 pipeline {
   agent any
 
-  /* Automatically install Node.js and add it to PATH */
-  tools {
-    nodejs 'nodejs-lts'            // <-- name as defined in Global Tool Configuration
-  }
-
   environment {
-    /* Quality */
-    SONARQUBE_SERVER   = 'SonarQubeServer'
+    /* Tool & quality settings */
+    NODEJS_HOME       = tool name: 'nodejs-lts', type: 'NodeJS'
+    SONARQUBE_SERVER  = 'SonarQubeServer'        // configured in Manage Jenkins → Configure System
 
-    /* Docker */
-    IMAGE_NAME         = 'my_node_app'
-    DOCKER_REGISTRY    = 'docker.io'
-    DOCKER_REPO        = "your_dockerhub_username/${IMAGE_NAME}"
-    DOCKER_CREDENTIALS = 'docker_hub_credentials_id'
+    /* Docker settings */
+    IMAGE_NAME        = 'my_node_app'
+    DOCKER_REGISTRY   = 'docker.io'              // Docker Hub; change if using ECR, GCR, etc.
+    DOCKER_REPO       = "your-dockerhub-username/${IMAGE_NAME}"
+    DOCKER_CREDENTIALS= 'docker-hub-credentials-id' // Jenkins credential ID (username-password or PAT)
 
-    /* GitHub release */
-    GITHUB_TOKEN_CRED  = 'github_token'
-  }
-
-  /* Always wipe workspace after each build */
-  options {
-    cleanWs()
+    /* Git / release */
+    GITHUB_TOKEN_CRED = 'github-token'           // Jenkins Secret Text with your PAT
   }
 
   stages {
@@ -32,47 +23,56 @@ pipeline {
     stage('Checkout') {
       steps {
         checkout scm
-        sh 'node --version'
-        sh 'npm  --version'
+        sh "${NODEJS_HOME}/bin/node --version"
+        sh "${NODEJS_HOME}/bin/npm  --version"
       }
     }
 
-    stage('Install and Test') {
+    stage('Install & Test') {
       steps {
-        sh 'npm install'
-        sh 'npm test'
-        junit 'reports/junit/*.xml'           // if you generate JUnit XML
+        withEnv(["PATH+NODE=${env.NODEJS_HOME}/bin"]) {
+          sh 'npm install'
+          sh 'npm test'                   // makes sure tests pass
+          junit 'reports/junit/*.xml'     // if your tests create JUnit XML
+        }
       }
     }
 
     stage('Code Quality') {
       steps {
-        sh 'npm run lint'
-        withSonarQubeEnv("${SONARQUBE_SERVER}") {
-          sh """
-            sonar-scanner \
-              -Dsonar.projectKey=my_node_app \
-              -Dsonar.sources=. \
-              -Dsonar.host.url=${SONARQUBE_SERVER}
-          """
+        withEnv(["PATH+NODE=${env.NODEJS_HOME}/bin"]) {
+          sh 'npm run lint'               // ESLint (adjust if you use a different linter)
+          withSonarQubeEnv("${SONARQUBE_SERVER}") {
+            sh """
+              sonar-scanner \
+                -Dsonar.projectKey=my-node-app \
+                -Dsonar.sources=. \
+                -Dsonar.host.url=${SONARQUBE_SERVER}
+            """
+          }
         }
       }
     }
 
     stage('Security') {
       steps {
-        sh 'npm audit --audit-level=high || true'
+        withEnv(["PATH+NODE=${env.NODEJS_HOME}/bin"]) {
+          sh 'npm audit --audit-level=high || true'
+          // If using OWASP Dependency-Check:
+          // sh 'dependency-check --project my-node-app --format HTML --scan .'
+        }
       }
     }
 
-    stage('Build & Push Image') {
+    stage('Build & Push Docker Image') {
       steps {
         script {
-          def tag = "${DOCKER_REPO}:${env.BRANCH_NAME}_${env.BUILD_NUMBER}"
+          def fullTag = "${DOCKER_REPO}:${env.BRANCH_NAME}-${env.BUILD_NUMBER}"
+
           docker.withRegistry("https://${DOCKER_REGISTRY}", DOCKER_CREDENTIALS) {
-            def img = docker.build(tag)
-            img.push()
-            img.push('latest')        // optional
+            def img = docker.build(fullTag)
+            img.push()          // pushes the unique tag
+            img.push('latest')  // optional: also push/update latest
           }
         }
       }
@@ -89,9 +89,10 @@ pipeline {
       }
     }
 
-    stage('Deploy') {
+    stage('Deploy (example)') {
       steps {
-        echo 'Add deployment commands here'
+        echo 'Add your deploy commands here, for example ssh to a host and run the new image'
+        // sshagent(['ssh-credentials-id']) { ... }
       }
     }
 
@@ -103,7 +104,7 @@ pipeline {
             returnStdout: true
           ).trim()
           if (code != '200') {
-            error "Health check failed – HTTP ${code}"
+            error "Health check failed, got ${code}"
           }
         }
       }
@@ -112,13 +113,15 @@ pipeline {
 
   post {
     always {
+      cleanWs()
+      // optional: prune dangling images to conserve disk
       sh 'docker image prune -f || true'
     }
     success {
       echo 'Pipeline finished successfully'
     }
     failure {
-      echo 'Pipeline failed – review console output'
+      echo 'Pipeline failed, see logs for details'
     }
   }
 }
