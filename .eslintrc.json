@@ -1,0 +1,30 @@
+{
+    "env": {
+      "commonjs": true,
+      "es2021": true,
+      "node": true,
+      "jest": true
+    },
+    "extends": "eslint:recommended",
+    "parserOptions": {
+      "ecmaVersion": 12
+    },
+    "rules": {
+      // You can place any custom server‐side rules here, for example:
+      // "no-console": "off"
+    },
+    "overrides": [
+      {
+        "files": ["active.js", "query.js"],
+        "env": {
+          "browser": true,
+          "es2021": true
+        },
+        "rules": {
+          // Turn off "no-undef" because browser globals like `document` and `location` are expected
+          "no-undef": "off"
+        }
+      }
+    ]
+  }
+  
