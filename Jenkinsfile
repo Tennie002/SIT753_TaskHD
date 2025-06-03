@@ -41,22 +41,25 @@ pipeline {
     stage('Code Quality') {
       steps {
         withEnv(["PATH+NODE=${env.NODEJS_HOME}/bin"]) {
-          // Run ESLint
-          sh 'npm run lint'
+          // Generate ESLint JUnit report
+          sh 'npx eslint --format junit -o eslint-report.xml .'
+          
+          // Record ESLint results in Jenkins UI
+          recordIssues tools: [eslint(pattern: 'eslint-report.xml')]
 
-          // Run SonarQube analysis
+          // SonarQube analysis
           withSonarQubeEnv("${SONARQUBE_SERVER}") {
             sh """
               sonar-scanner \
                 -Dsonar.projectKey=my-node-app \
                 -Dsonar.sources=. \
-                -Dsonar.host.url=${SONARQUBE_SERVER} \
-                -Dsonar.login=${SONARQUBE_SERVER_CREDENTIALS}
+                -Dsonar.host.url=${SONARQUBE_SERVER}
             """
           }
         }
       }
     }
+
 
 
     stage('Security') {
