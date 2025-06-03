@@ -41,18 +41,23 @@ pipeline {
     stage('Code Quality') {
       steps {
         withEnv(["PATH+NODE=${env.NODEJS_HOME}/bin"]) {
-          sh 'npm run lint'               // ESLint (adjust if you use a different linter)
+          // Run ESLint
+          sh 'npm run lint'
+
+          // Run SonarQube analysis
           withSonarQubeEnv("${SONARQUBE_SERVER}") {
             sh """
               sonar-scanner \
                 -Dsonar.projectKey=my-node-app \
                 -Dsonar.sources=. \
-                -Dsonar.host.url=${SONARQUBE_SERVER}
+                -Dsonar.host.url=${SONARQUBE_SERVER} \
+                -Dsonar.login=${SONARQUBE_SERVER_CREDENTIALS}
             """
           }
         }
       }
     }
+
 
     stage('Security') {
       steps {
