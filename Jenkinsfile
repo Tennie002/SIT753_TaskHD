@@ -2,7 +2,7 @@ pipeline {
   agent any
 
   environment {
-    NODEJS_HOME       = tool name: 'nodejs-lts', type: 'NodeJS'
+    NODEJS_HOME       = tool name: 'nodejs-lts1', type: 'NodeJS'
     SONARQUBE_SERVER  = 'SonarQubeServer'
     IMAGE_NAME        = 'my_node_app'
     DOCKER_REGISTRY   = 'docker.io'
@@ -124,9 +124,11 @@ pipeline {
     }
   }
 
-  post {
+post {
     always {
-      cleanWs()
+      script {
+        cleanWs()
+      }
       sh 'docker image prune -f || true'
     }
     success {
