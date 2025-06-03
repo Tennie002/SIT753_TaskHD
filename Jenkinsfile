@@ -1,24 +1,28 @@
-// Jenkinsfile – combined settings with automatic workspace cleanup
+// Jenkinsfile – fixed Declarative syntax
 
 pipeline {
   agent any
 
-  environment {
-    /* Tool and quality settings */
-    NODEJS_HOME       = tool name: 'nodejs_lts', type: 'NodeJS'
-    SONARQUBE_SERVER  = 'SonarQubeServer'
-
-    /* Docker settings */
-    IMAGE_NAME        = 'my_node_app'
-    DOCKER_REGISTRY   = 'docker.io'
-    DOCKER_REPO       = "your_dockerhub_username/${IMAGE_NAME}"
-    DOCKER_CREDENTIALS= 'docker_hub_credentials_id'  // Jenkins credential ID
-
-    /* GitHub release tag */
-    GITHUB_TOKEN_CRED = 'github_token'               // Jenkins Secret Text ID
+  /* Automatically install Node.js and add it to PATH */
+  tools {
+    nodejs 'nodejs-lts'            // <-- name as defined in Global Tool Configuration
   }
 
-  /* Always clean the workspace after every build */
+  environment {
+    /* Quality */
+    SONARQUBE_SERVER   = 'SonarQubeServer'
+
+    /* Docker */
+    IMAGE_NAME         = 'my_node_app'
+    DOCKER_REGISTRY    = 'docker.io'
+    DOCKER_REPO        = "your_dockerhub_username/${IMAGE_NAME}"
+    DOCKER_CREDENTIALS = 'docker_hub_credentials_id'
+
+    /* GitHub release */
+    GITHUB_TOKEN_CRED  = 'github_token'
+  }
+
+  /* Always wipe workspace after each build */
   options {
     cleanWs()
   }
@@ -28,59 +32,53 @@ pipeline {
     stage('Checkout') {
       steps {
         checkout scm
-        sh "${NODEJS_HOME}/bin/node --version"
-        sh "${NODEJS_HOME}/bin/npm  --version"
+        sh 'node --version'
+        sh 'npm  --version'
       }
     }
 
-    stage('Install_and_Test') {
+    stage('Install and Test') {
       steps {
-        withEnv(["PATH+NODE=${env.NODEJS_HOME}/bin"]) {
-          sh 'npm install'
-          sh 'npm test'
-          junit 'reports/junit/*.xml'           // if your tests generate JUnit XML
-        }
+        sh 'npm install'
+        sh 'npm test'
+        junit 'reports/junit/*.xml'           // if you generate JUnit XML
       }
     }
 
-    stage('Code_Quality') {
+    stage('Code Quality') {
       steps {
-        withEnv(["PATH+NODE=${env.NODEJS_HOME}/bin"]) {
-          sh 'npm run lint'
-          withSonarQubeEnv("${SONARQUBE_SERVER}") {
-            sh """
-              sonar-scanner \
-                -Dsonar.projectKey=my_node_app \
-                -Dsonar.sources=. \
-                -Dsonar.host.url=${SONARQUBE_SERVER}
-            """
-          }
+        sh 'npm run lint'
+        withSonarQubeEnv("${SONARQUBE_SERVER}") {
+          sh """
+            sonar-scanner \
+              -Dsonar.projectKey=my_node_app \
+              -Dsonar.sources=. \
+              -Dsonar.host.url=${SONARQUBE_SERVER}
+          """
         }
       }
     }
 
     stage('Security') {
       steps {
-        withEnv(["PATH+NODE=${env.NODEJS_HOME}/bin"]) {
-          sh 'npm audit --audit-level=high || true'
-        }
+        sh 'npm audit --audit-level=high || true'
       }
     }
 
-    stage('Build_and_Push_Image') {
+    stage('Build & Push Image') {
       steps {
         script {
-          def fullTag = "${DOCKER_REPO}:${env.BRANCH_NAME}_${env.BUILD_NUMBER}"
+          def tag = "${DOCKER_REPO}:${env.BRANCH_NAME}_${env.BUILD_NUMBER}"
           docker.withRegistry("https://${DOCKER_REGISTRY}", DOCKER_CREDENTIALS) {
-            def img = docker.build(fullTag)
-            img.push()             // push unique tag
-            img.push('latest')     // optional: update latest
+            def img = docker.build(tag)
+            img.push()
+            img.push('latest')        // optional
           }
         }
       }
     }
 
-    stage('Create_Release_Tag') {
+    stage('Release Tag') {
       steps {
         script {
           sh "git tag v${env.BUILD_NUMBER}"
@@ -93,7 +91,7 @@ pipeline {
 
     stage('Deploy') {
       steps {
-        echo 'Add deployment logic here (ssh, kubectl, etc.)'
+        echo 'Add deployment commands here'
       }
     }
 
@@ -105,7 +103,7 @@ pipeline {
             returnStdout: true
           ).trim()
           if (code != '200') {
-            error "Health check failed code ${code}"
+            error "Health check failed – HTTP ${code}"
           }
         }
       }
@@ -114,13 +112,13 @@ pipeline {
 
   post {
     always {
-      sh 'docker image prune -f || true'          // reclaim disk space
+      sh 'docker image prune -f || true'
     }
     success {
-      echo 'Pipeline completed successfully'
+      echo 'Pipeline finished successfully'
     }
     failure {
-      echo 'Pipeline failed see logs for details'
+      echo 'Pipeline failed – review console output'
     }
   }
 }
