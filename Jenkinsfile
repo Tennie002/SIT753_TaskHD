@@ -1,21 +1,14 @@
-// Jenkinsfile  (Declarative Pipeline - combined environments)
-
 pipeline {
   agent any
 
   environment {
-    /* Tool & quality settings */
     NODEJS_HOME       = tool name: 'nodejs-lts', type: 'NodeJS'
-    SONARQUBE_SERVER  = 'SonarQubeServer'        // configured in Manage Jenkins → Configure System
-
-    /* Docker settings */
+    SONARQUBE_SERVER  = 'SonarQubeServer'
     IMAGE_NAME        = 'my_node_app'
-    DOCKER_REGISTRY   = 'docker.io'              // Docker Hub; change if using ECR, GCR, etc.
+    DOCKER_REGISTRY   = 'docker.io'
     DOCKER_REPO       = "your-dockerhub-username/${IMAGE_NAME}"
-    DOCKER_CREDENTIALS= 'docker-hub-credentials-id' // Jenkins credential ID (username-password or PAT)
-
-    /* Git / release */
-    GITHUB_TOKEN_CRED = 'github-token'           // Jenkins Secret Text with your PAT
+    DOCKER_CREDENTIALS= 'docker-hub-credentials-id'
+    GITHUB_TOKEN_CRED = 'github-token'
   }
 
   stages {
@@ -32,8 +25,8 @@ pipeline {
       steps {
         withEnv(["PATH+NODE=${env.NODEJS_HOME}/bin"]) {
           sh 'npm install'
-          sh 'npm test'                   // makes sure tests pass
-          junit 'reports/junit/*.xml'     // if your tests create JUnit XML
+          sh 'npm test'
+          junit 'reports/junit/*.xml'
         }
       }
     }
@@ -41,33 +34,19 @@ pipeline {
     stage('Code Quality') {
       steps {
         withEnv(["PATH+NODE=${env.NODEJS_HOME}/bin"]) {
-          // Generate ESLint JUnit report
           sh 'npx eslint --format junit -o eslint-report.xml .'
-          
-          // Record ESLint results in Jenkins UI
           recordIssues tools: [eslint(pattern: 'eslint-report.xml')]
-
-          // SonarQube analysis
           withSonarQubeEnv("${SONARQUBE_SERVER}") {
-            sh """
-              sonar-scanner \
-                -Dsonar.projectKey=my-node-app \
-                -Dsonar.sources=. \
-                -Dsonar.host.url=${SONARQUBE_SERVER}
-            """
+            sh "sonar-scanner -Dsonar.projectKey=my-node-app -Dsonar.sources=. -Dsonar.host.url=${SONARQUBE_SERVER}"
           }
         }
       }
     }
 
-
-
     stage('Security') {
       steps {
         withEnv(["PATH+NODE=${env.NODEJS_HOME}/bin"]) {
           sh 'npm audit --audit-level=high || true'
-          // If using OWASP Dependency-Check:
-          // sh 'dependency-check --project my-node-app --format HTML --scan .'
         }
       }
     }
@@ -76,11 +55,10 @@ pipeline {
       steps {
         script {
           def fullTag = "${DOCKER_REPO}:${env.BRANCH_NAME}-${env.BUILD_NUMBER}"
-
           docker.withRegistry("https://${DOCKER_REGISTRY}", DOCKER_CREDENTIALS) {
             def img = docker.build(fullTag)
-            img.push()          // pushes the unique tag
-            img.push('latest')  // optional: also push/update latest
+            img.push()
+            img.push('latest')
           }
         }
       }
@@ -97,20 +75,47 @@ pipeline {
       }
     }
 
-    stage('Deploy (example)') {
+    stage('Deploy to Staging') {
       steps {
-        echo 'Add your deploy commands here, for example ssh to a host and run the new image'
-        // sshagent(['ssh-credentials-id']) { ... }
+        script {
+          sh "docker stop my_node_app || true"
+          sh "docker rm my_node_app || true"
+          sh "docker run -d --name my_node_app -p 3000:3000 ${DOCKER_REPO}:${BRANCH_NAME}-${BUILD_NUMBER}"
+        }
+      }
+    }
+
+    stage('Promote to Production') {
+      steps {
+        input message: 'Deploy to production?'
+        script {
+          def prodTag = "${DOCKER_REPO}:prod"
+          docker.withRegistry("https://${DOCKER_REGISTRY}", DOCKER_CREDENTIALS) {
+            sh "docker pull ${DOCKER_REPO}:${BRANCH_NAME}-${BUILD_NUMBER}"
+            sh "docker tag ${DOCKER_REPO}:${BRANCH_NAME}-${BUILD_NUMBER} ${prodTag}"
+            sh "docker push ${prodTag}"
+          }
+        }
+      }
+    }
+
+    stage('GitHub Release') {
+      steps {
+        withCredentials([string(credentialsId: GITHUB_TOKEN_CRED, variable: 'GH_TOKEN')]) {
+          sh '''
+          curl -X POST https://api.github.com/repos/your-username/your-repo/releases \
+          -H "Authorization: token $GH_TOKEN" \
+          -H "Content-Type: application/json" \
+          -d "{\"tag_name\": \"v${BUILD_NUMBER}\", \"name\": \"Release v${BUILD_NUMBER}\", \"body\": \"Auto-generated release for build ${BUILD_NUMBER}\", \"draft\": false, \"prerelease\": false}"
+          '''
+        }
       }
     }
 
     stage('Monitoring') {
       steps {
         script {
-          def code = sh(
-            script: 'curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/health',
-            returnStdout: true
-          ).trim()
+          def code = sh(script: 'curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/health', returnStdout: true).trim()
           if (code != '200') {
             error "Health check failed, got ${code}"
           }
@@ -122,7 +127,6 @@ pipeline {
   post {
     always {
       cleanWs()
-      // optional: prune dangling images to conserve disk
       sh 'docker image prune -f || true'
     }
     success {
@@ -133,3 +137,4 @@ pipeline {
     }
   }
 }
+// This Jenkinsfile defines a CI/CD pipeline for a Node.js application.
