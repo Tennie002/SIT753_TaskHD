@@ -1,29 +1,26 @@
 pipeline {
   agent any
   environment {
-    /* Tool & quality settings */
     NODEJS_HOME       = tool name: 'nodejs-lts', type: 'NodeJS'
-    SONARQUBE_SERVER  = 'SonarQubeServer'        // configured in Manage Jenkins → Configure System
-    /* Docker settings */
+    SONARQUBE_SERVER  = 'SonarQubeServer'
     IMAGE_NAME        = 'my_node_app'
-    DOCKER_REGISTRY   = 'docker.io'              // Docker Hub; change if using ECR, GCR, etc.
+    DOCKER_REGISTRY   = 'docker.io'
     DOCKER_REPO       = "your-dockerhub-username/${IMAGE_NAME}"
-    DOCKER_CREDENTIALS= 'docker-hub-credentials-id' // Jenkins credential ID (username-password or PAT)
-    /* Git / release */
-    GITHUB_TOKEN_CRED = 'github-token'           // Jenkins Secret Text with your PAT
+    DOCKER_CREDENTIALS= 'docker-hub-credentials-id'
+    GITHUB_TOKEN_CRED = 'github-token'
   }
   stages {
     stage('Checkout') {
       steps {
         checkout scm
         sh "${NODEJS_HOME}/bin/node --version"
-        sh "${NODEJS_HOME}/bin/npm  --version"
+        sh "${NODEJS_HOME}/bin/npm --version"
       }
     }
     stage('Install & Test') {
       steps {
         sh "${NODEJS_HOME}/bin/npm install"
-        sh "${NODEJS_HOME}/bin/npm test" // Ensure tests are defined in `tests/` folder
+        sh "${NODEJS_HOME}/bin/npm test"
       }
     }
     stage('Build & Push Docker Image') {
@@ -32,8 +29,8 @@ pipeline {
           def fullTag = "${DOCKER_REPO}:${env.BRANCH_NAME}-${env.BUILD_NUMBER}"
           docker.withRegistry("https://${DOCKER_REGISTRY}", DOCKER_CREDENTIALS) {
             def img = docker.build(fullTag)
-            img.push()          // pushes the unique tag
-            img.push('latest')  // optional: also push/update latest
+            img.push()
+            img.push('latest')
           }
         }
       }
@@ -50,28 +47,15 @@ pipeline {
     }
     stage('Deploy') {
       steps {
-        echo 'Add your deploy commands here, for example ssh to a host and run the new image'
-        // sshagent(['ssh-credentials-id']) { ... }
-      }
-    }
-    stage('Monitoring') {
-      steps {
-        script {
-          def code = sh(
-            script: 'curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/health',
-            returnStdout: true
-          ).trim()
-          if (code != '200') {
-            error "Health check failed, got ${code}"
-          }
-        }
+        echo 'Add your deploy commands here'
       }
     }
   }
   post {
     always {
-      cleanWs()
-      // optional: prune dangling images to conserve disk
+      node {
+        cleanWs()
+      }
       sh 'docker image prune -f'
     }
   }
