@@ -103,7 +103,7 @@ pipeline {
       steps {
         withCredentials([string(credentialsId: GITHUB_TOKEN_CRED, variable: 'GH_TOKEN')]) {
           sh '''
-          curl -X POST https://api.github.com/repos/your-username/your-repo/releases \
+          curl -X POST https://github.com/Tennie002/SIT753_TaskHD.git \
           -H "Authorization: token $GH_TOKEN" \
           -H "Content-Type: application/json" \
           -d "{\"tag_name\": \"v${BUILD_NUMBER}\", \"name\": \"Release v${BUILD_NUMBER}\", \"body\": \"Auto-generated release for build ${BUILD_NUMBER}\", \"draft\": false, \"prerelease\": false}"
